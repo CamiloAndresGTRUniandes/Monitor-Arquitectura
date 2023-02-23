@@ -12,41 +12,55 @@ rabbitmq_port = 5672
 rabbitmq_username = 'guest'
 rabbitmq_password = 'guest'
 
-@bp.route('/process-message', methods=['POST'])
+#@bp.route('/process-message', methods=['POST'])
+@bp.route('/suscriptor-peticion-ventas')
 def process_message():
-    # Get message from request body
-    message = request.json
-
-    # Check status of microservices
-    service = check_microservices()
-
-    if service is not None:
-        # Connect to RabbitMQ and send message to appropriate queue
-        connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=pika.PlainCredentials(username=rabbitmq_username, password=rabbitmq_password)))
-        channel = connection.channel()
-        queue_name = 'respuesta_ventas'#f'{service}-queue'
-        channel.queue_declare(queue=queue_name)
-        channel.basic_publish(exchange='', routing_key=queue_name, body=json.dumps(message))
-        connection.close()
-
-        return jsonify({'message': f'Message sent to {service}-queue'}), 200
-    else:
-        return jsonify({'error': 'No available microservices to process message'}), 404
-    
-@bp.route('/subscribe')
-def subscribe():
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+    connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
     channel = connection.channel()
 
-    channel.queue_declare(queue='respuesta_ventas')
+    channel.queue_declare(queue='peticion_ventas')
+
+    def callback(ch, method, properties, body):
+        # procesa el mensaje recibido aquí
+        message = body
+        print("Mensaje recibido: ", message)
+        # Check status of microservices
+        service = check_microservices()
+
+        if service is not None:
+            # Connect to RabbitMQ and send message to appropriate queue
+            connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=pika.PlainCredentials(username=rabbitmq_username, password=rabbitmq_password)))
+            channel = connection.channel()
+            queue_name = f'{service}-consulta'
+            channel.queue_declare(queue=queue_name)
+            channel.basic_publish(exchange='', routing_key=queue_name, body=message)
+            connection.close()
+
+            return jsonify({'message': f'Message sent to {service}-queue'}), 200
+        else:
+            return jsonify({'error': 'No available microservices to process message'}), 404
+
+    channel.basic_consume(queue='peticion_ventas', on_message_callback=callback, auto_ack=True)
+
+    print('Escuchando en la cola: peticion_ventas')
+    channel.start_consuming()
+
+    return 'Suscrito a la cola'
+    
+@bp.route('/suscriptor-respuesta-consulta')
+def subscribe():
+    connection = pika.BlockingConnection(pika.ConnectionParameters(rabbitmq_host))
+    channel = connection.channel()
+
+    channel.queue_declare(queue='respuesta_consulta')
 
     def callback(ch, method, properties, body):
         # procesa el mensaje recibido aquí
         print("Mensaje recibido: ", body)
 
-    channel.basic_consume(queue='respuesta_ventas', on_message_callback=callback, auto_ack=True)
+    channel.basic_consume(queue='respuesta_consulta', on_message_callback=callback, auto_ack=True)
 
-    print('Escuchando en la cola: respuesta_ventas')
+    print('Escuchando en la cola: respuesta_consulta')
     channel.start_consuming()
 
     return 'Suscrito a la cola'
