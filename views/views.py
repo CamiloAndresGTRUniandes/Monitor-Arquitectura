@@ -36,7 +36,7 @@ def process_message():
             channel.basic_publish(exchange='', routing_key=queue_name, body=message)
             connection.close()
 
-            return jsonify({'message': f'Message sent to {service}-queue'}), 200
+            return jsonify({'message': f'Message sent to {service}-consulta'}), 200
         else:
             return jsonify({'error': 'No available microservices to process message'}), 404
 
