@@ -36,9 +36,9 @@ def process_message():
             channel.basic_publish(exchange='', routing_key=queue_name, body=message)
             connection.close()
 
-            return jsonify({'message': f'Message sent to {service}-consulta'}), 200
+            print(f'Message sent to {service}-consulta')
         else:
-            return jsonify({'error': 'No available microservices to process message'}), 404
+            print('error: No available microservices to process message')
 
     channel.basic_consume(queue='peticion_ventas', on_message_callback=callback, auto_ack=True)
 
@@ -56,7 +56,15 @@ def subscribe():
 
     def callback(ch, method, properties, body):
         # procesa el mensaje recibido aquí
-        print("Mensaje recibido: ", body)
+        message = body
+        print("Mensaje recibido: ", message)
+        connection = pika.BlockingConnection(pika.ConnectionParameters(host=rabbitmq_host, port=rabbitmq_port, credentials=pika.PlainCredentials(username=rabbitmq_username, password=rabbitmq_password)))
+        channel = connection.channel()
+        queue_name = f'respuesta_ventas'
+        channel.queue_declare(queue=queue_name)
+        channel.basic_publish(exchange='', routing_key=queue_name, body=message)
+        connection.close()
+        print(f'Message sent to {queue_name}')
 
     channel.basic_consume(queue='respuesta_consulta', on_message_callback=callback, auto_ack=True)
 
